@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1B1A17" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='52' height='52' rx='8' fill='%23B03A2E'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23F4EDE0' font-family='serif'%3E%E5%9B%BE%3C/text%3E%3C/svg%3E"
+    />
+    <meta name="description" content="清明上河图·众生图鉴 — 展卷、点将、观天下" />
+    <title>清明上河图 · 众生图鉴</title>
+    <style>
+      /* LCP 首图：全览档静态直出，浏览器在解析 HTML 时即开始下载（与 JS 并行）；
+         初始构图（cover 60%/30%）近似开场镜头，Vue 挂载后同 URL 命中缓存无缝接管 */
+      #boot-scroll {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 60% 30%;
+        background: #f4ede0;
+      }
+      #app {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- LCP boot 首图：静态 HTML 直出，浏览器与 JS 并行下载；
+         Vue 挂载且全览档就绪后由 RollView 移除 -->
+    <img
+      id="boot-scroll"
+      src="/media/scroll/roll-preview.webp"
+      alt=""
+      aria-hidden="true"
+      draggable="false"
+      fetchpriority="high"
+    />
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

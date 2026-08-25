@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+# 生图中间产物与调试切图（体积大，不入库；public/media/ 为已转码的发布资源，需入库）
+imagegen/
+.inspect/
+
+# 源图（10MB，部署不需要；public/media 为成品资源）
+assets/

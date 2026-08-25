@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>坐标标定 · 众生图鉴</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#141310; color:#e8e0d0; font:14px/1.6 "Songti SC","Noto Serif SC",serif; overflow:hidden; }
+  #app { position:fixed; inset:0; display:flex; }
+  #stage { position:relative; flex:1; overflow:hidden; cursor:crosshair; touch-action:none; }
+  #world { position:absolute; left:0; top:0; transform-origin:0 0; }
+  #world img { display:block; width:4206px; height:1733px; user-select:none; -webkit-user-drag:none; }
+  .pt { position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border:2px solid #b03a2e; border-radius:50%; background:rgba(20,19,16,.35); pointer-events:none; }
+  .pt.sel { background:#b03a2e; box-shadow:0 0 0 6px rgba(176,58,46,.35); }
+  .pt .nm { position:absolute; left:50%; bottom:20px; transform:translateX(-50%); writing-mode:vertical-rl; font-size:12px; letter-spacing:2px; background:rgba(27,26,23,.8); border:1px solid rgba(201,169,106,.4); padding:4px 2px; white-space:nowrap; }
+  #cross { position:absolute; pointer-events:none; display:none; }
+  #cross .hx,#cross .hy { position:absolute; background:rgba(176,58,46,.8); }
+  #cross .hx { width:60px; height:1px; left:-30px; top:0; }
+  #cross .hy { height:60px; width:1px; top:-30px; left:0; }
+  #panel { width:300px; background:#1b1a17; border-left:1px solid rgba(201,169,106,.25); padding:14px; overflow-y:auto; }
+  #panel h1 { font-size:16px; letter-spacing:3px; color:#c9a96a; margin-bottom:8px; }
+  #panel p.hint { font-size:12px; color:#a89e8c; margin-bottom:10px; }
+  #coords { font:12px/1.7 monospace; background:#241f19; border:1px solid rgba(201,169,106,.25); padding:8px 10px; margin-bottom:10px; word-break:break-all; min-height:52px; }
+  #near { font-size:13px; margin-bottom:10px; color:#c9a96a; min-height:20px; }
+  #list { list-style:none; }
+  #list li { display:flex; justify-content:space-between; align-items:center; padding:4px 8px; cursor:pointer; border:1px solid transparent; font-size:13px; }
+  #list li:hover { border-color:rgba(201,169,106,.3); background:rgba(201,169,106,.06); }
+  #list li.sel { border-color:#b03a2e; background:rgba(176,58,46,.1); }
+  #list .pos { font:11px monospace; color:#a89e8c; }
+  #list .name { letter-spacing:1px; }
+  #zoomctl { position:absolute; right:12px; bottom:12px; display:flex; gap:6px; z-index:5; }
+  #zoomctl button { width:34px; height:34px; background:#241f19; color:#e8e0d0; border:1px solid rgba(201,169,106,.35); cursor:pointer; font-size:16px; }
+  #zoomctl button:hover { border-color:#c9a96a; }
+  #export { width:100%; margin-top:10px; padding:8px; background:#b03a2e; color:#fff; border:none; cursor:pointer; letter-spacing:2px; font-family:inherit; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="world"><img id="bg" src="/media/scroll/roll-preview.webp" alt="" /></div>
+    <div id="cross"><div class="hx"></div><div class="hy"></div></div>
+    <div id="zoomctl">
+      <button id="zout" title="缩小">−</button>
+      <button id="zfit" title="适配">⌂</button>
+      <button id="zin" title="放大">＋</button>
+    </div>
+  </div>
+  <div id="panel">
+    <h1>坐标标定</h1>
+    <p class="hint">滚轮缩放 / 空格或右键拖拽平移 / 左键点击标记位置。选中左侧角色后点击画布，即可把该角色锚到此处。全部调完点「导出 JSON」。</p>
+    <div id="coords">x: — y: —</div>
+    <div id="near"></div>
+    <ul id="list"></ul>
+    <button id="export">导出 JSON</button>
+  </div>
+</div>
+<script>
+(function () {
+  var W = 4206, H = 1733;
+  var stage = document.getElementById('stage');
+  var world = document.getElementById('world');
+  var cross = document.getElementById('cross');
+  var coordsEl = document.getElementById('coords');
+  var nearEl = document.getElementById('near');
+  var listEl = document.getElementById('list');
+  var bg = document.getElementById('bg');
+
+  var cam = { x: 0, y: 0, s: 0.1 };
+  var characters = [];
+  var selectedId = null;
+
+  function apply() {
+    world.style.transform = 'translate3d(' + cam.x + 'px,' + cam.y + 'px,0) scale(' + cam.s + ')';
+  }
+  function fit() {
+    var r = stage.getBoundingClientRect();
+    cam.s = Math.min(r.width / W, r.height / H) * 0.98;
+    cam.x = (r.width - W * cam.s) / 2;
+    cam.y = (r.height - H * cam.s) / 2;
+    apply();
+  }
+  window.addEventListener('resize', fit);
+
+  // 缩放
+  stage.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var r = stage.getBoundingClientRect();
+    var px = e.clientX - r.left, py = e.clientY - r.top;
+    var f = Math.exp(-e.deltaY * 0.0016);
+    var ns = Math.min(2, Math.max(0.05, cam.s * f));
+    cam.x = px - (px - cam.x) * (ns / cam.s);
+    cam.y = py - (py - cam.y) * (ns / cam.s);
+    cam.s = ns;
+    apply();
+  }, { passive: false });
+  document.getElementById('zin').onclick = function () { cam.s = Math.min(2, cam.s * 1.3); apply(); };
+  document.getElementById('zout').onclick = function () { cam.s = Math.max(0.05, cam.s / 1.3); apply(); };
+  document.getElementById('zfit').onclick = fit;
+
+  // 平移（空格按住 或 中键/右键）
+  var panning = false, spaceDown = false, last = null;
+  window.addEventListener('keydown', function (e) { if (e.code === 'Space') spaceDown = true; });
+  window.addEventListener('keyup', function (e) { if (e.code === 'Space') spaceDown = false; });
+  stage.addEventListener('pointerdown', function (e) {
+    if (e.button === 1 || e.button === 2 || spaceDown) {
+      panning = true; last = [e.clientX, e.clientY];
+      stage.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+  });
+  stage.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  stage.addEventListener('pointermove', function (e) {
+    var r = stage.getBoundingClientRect();
+    var sx = e.clientX - r.left, sy = e.clientY - r.top;
+    var cx = (sx - cam.x) / cam.s, cy = (sy - cam.y) / cam.s;
+    if (cx >= 0 && cx <= W && cy >= 0 && cy <= H) {
+      cross.style.display = 'block';
+      cross.style.left = sx + 'px';
+      cross.style.top = sy + 'px';
+      coordsEl.textContent = 'x: ' + (cx / W).toFixed(4) + '  y: ' + (cy / H).toFixed(4);
+      var best = null, bd = 1e9;
+      for (var i = 0; i < characters.length; i++) {
+        var c = characters[i];
+        var d = Math.hypot(c.pos.x * W - cx, c.pos.y * H - cy);
+        if (d < bd) { bd = d; best = c; }
+      }
+      if (best && bd < 220) {
+        nearEl.textContent = '最近: ' + best.name + '（' + best.id + '，距 ' + Math.round(bd / cam.s) + 'px 屏幕）';
+      } else nearEl.textContent = '';
+    } else {
+      cross.style.display = 'none';
+      coordsEl.textContent = 'x: — y: —';
+      nearEl.textContent = '';
+    }
+    if (panning && last) {
+      cam.x += e.clientX - last[0];
+      cam.y += e.clientY - last[1];
+      last = [e.clientX, e.clientY];
+      apply();
+    }
+  });
+  stage.addEventListener('pointerup', function () { panning = false; last = null; });
+
+  // 左键点击 = 标定选中角色
+  var downAt = null;
+  stage.addEventListener('pointerdown', function (e) {
+    if (e.button === 0 && !spaceDown) downAt = [e.clientX, e.clientY, Date.now()];
+  });
+  stage.addEventListener('pointerup', function (e) {
+    if (!downAt || e.button !== 0 || spaceDown) return;
+    var moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
+    var dt = Date.now() - downAt[2];
+    downAt = null;
+    if (moved > 6 || dt > 400) return;
+    var r = stage.getBoundingClientRect();
+    var cx = (e.clientX - r.left - cam.x) / cam.s;
+    var cy = (e.clientY - r.top - cam.y) / cam.s;
+    if (cx < 0 || cx > W || cy < 0 || cy > H) return;
+    if (!selectedId) { nearEl.textContent = '⚠ 请先在右侧选中一个角色'; return; }
+    for (var i = 0; i < characters.length; i++) {
+      if (characters[i].id === selectedId) {
+        characters[i].pos = { x: +(cx / W).toFixed(4), y: +(cy / H).toFixed(4) };
+        break;
+      }
+    }
+    renderPts();
+    syncListPos();
+  });
+
+  // 角色点渲染
+  function renderPts() {
+    world.querySelectorAll('.pt').forEach(function (el) { el.remove(); });
+    characters.forEach(function (c) {
+      var d = document.createElement('div');
+      d.className = 'pt' + (c.id === selectedId ? ' sel' : '');
+      d.style.left = c.pos.x * W + 'px';
+      d.style.top = c.pos.y * H + 'px';
+      d.innerHTML = '<span class="nm">' + c.name + '</span>';
+      world.appendChild(d);
+    });
+  }
+  function syncListPos() {
+    var items = listEl.querySelectorAll('li');
+    characters.forEach(function (c, i) {
+      if (items[i]) items[i].querySelector('.pos').textContent = c.pos.x.toFixed(3) + ', ' + c.pos.y.toFixed(3);
+    });
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    characters.forEach(function (c) {
+      var li = document.createElement('li');
+      li.className = c.id === selectedId ? 'sel' : '';
+      li.innerHTML = '<span class="name">' + c.name + ' <small style="color:#6b6257">' + c.title + '</small></span><span class="pos">' + c.pos.x.toFixed(3) + ', ' + c.pos.y.toFixed(3) + '</span>';
+      li.onclick = function () {
+        selectedId = c.id;
+        renderPts(); renderList();
+      };
+      listEl.appendChild(li);
+    });
+  }
+
+  // 导出
+  document.getElementById('export').onclick = function () {
+    var out = characters.map(function (c) {
+      return '  { "' + c.id + '": [ ' + c.pos.x + ', ' + c.pos.y + ' ] },';
+    }).join('\n');
+    var text = '// 粘贴进标定脚本的 M 映射表\n' + out;
+    var blob = new Blob([text], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'calibration.json';
+    a.click();
+    alert('已导出标定坐标（calibration.json），把内容发给开发者即可写回');
+  };
+
+  // 载入角色数据
+  function boot(list) {
+    characters = list;
+    renderPts(); renderList(); fit();
+  }
+  fetch('/src/data/characters.json')
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .catch(function () { return fetch('/data/characters.json').then(function (r) { return r.json(); }); })
+    .then(boot)
+    .catch(function () { nearEl.textContent = '⚠ 未能载入角色数据（请确认在 dev 服务器下打开）'; });
+  bg.onload = fit;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+/* ============ 主题变量（夜观长卷 · 默认深色） ============ */
+:root {
+  --paper: #f4ede0;
+  --ink: #2a2620;
+  --ink-2: #6b6257;
+  --night: #1b1a17;
+  --night-2: #241f19;
+  --text: #e8e0d0;
+  --text-2: #a89e8c;
+  --dai: #3e5c63;
+  --zhe: #8c5b3f;
+  --cinnabar: #b03a2e;
+  --gold: #c9a96a;
+  --green: #5c6b4f;
+  --purple: #6e4a5e;
+  --panel: rgba(27, 26, 23, 0.72);
+  --panel-line: rgba(201, 169, 106, 0.35);
+  --ease-ink: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --tabbar-h: 56px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --font-display: 'LXGW WenKai TC', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Serif SC', serif;
+  --font-body: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--night);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+#app {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* 绢纹噪点（全局覆层，pointer-events none） */
+.noise {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.08s !important;
+  }
+}
