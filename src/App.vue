@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useNavStore } from '@/stores/nav'
 import RollView from '@/views/RollView.vue'
 import GraphView from '@/views/GraphView.vue'
+import PoemView from '@/views/PoemView.vue'
 import DetailView from '@/views/DetailView.vue'
 import TabBar from '@/components/TabBar.vue'
 import MusicButton from '@/components/MusicButton.vue'
@@ -15,8 +16,9 @@ const rollRef = ref<InstanceType<typeof RollView> | null>(null)
 <template>
   <div class="app">
     <!-- 画卷常驻（保留镜头状态），图谱按需挂载 -->
-    <RollView ref="rollRef" v-show="nav.mode === 'roll'" />
+    <RollView ref="rollRef" v-show="nav.mode === 'roll' || nav.mode === 'find' || nav.mode === 'story'" />
     <GraphView v-if="nav.mode === 'graph'" />
+    <PoemView v-if="nav.mode === 'poem'" />
     <DetailView v-if="nav.detail" :model-value="rollRef" />
     <MusicButton />
     <TabBar />

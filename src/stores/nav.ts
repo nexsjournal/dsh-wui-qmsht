@@ -1,11 +1,11 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export type Mode = 'roll' | 'graph'
+export type Mode = 'roll' | 'graph' | 'find' | 'story' | 'poem'
 
 /**
- * 3 态导航：roll / graph + detail 覆盖层栈。
- * 不用 vue-router：只有 3 种页面形态，自研栈可精确控制
+ * 多态导航：roll / graph / find（寻人玩法，复用长卷镜头）+ detail 覆盖层栈。
+ * 不用 vue-router：页面形态少，自研栈可精确控制
  * 「详情覆盖层 + 关系跳转栈 + 浏览器返回键」。
  */
 export const useNavStore = defineStore('nav', () => {
@@ -32,6 +32,12 @@ export const useNavStore = defineStore('nav', () => {
     mode.value = 'graph'
     graphFocus.value = id
   }
+  /** 切到展卷并把某角色设为「焦点」（诗韵页「诗中之人」跳转用；src 记来源，如诗题） */
+  const rollFocus = ref<{ id: string; src?: string } | null>(null)
+  function focusInRoll(id: string, src?: string) {
+    mode.value = 'roll'
+    rollFocus.value = { id, src }
+  }
 
-  return { mode, detailStack, detail, graphFocus, setMode, push, pop, closeAll, focusInGraph }
+  return { mode, detailStack, detail, graphFocus, rollFocus, setMode, push, pop, closeAll, focusInGraph, focusInRoll }
 })

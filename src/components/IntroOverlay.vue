@@ -18,9 +18,14 @@ onBeforeUnmount(() => window.clearTimeout(timer))
 
 <template>
   <div v-if="visible" class="intro" @pointerdown="close" role="presentation">
+    <!-- 展卷：绢帛自中向两侧展开，轴杆随绢缘同步外移
+         （真实卷轴展开时余卷半径 ∝ √(1-p)，绢长进度呈先慢后快，故取 ease-in 二次曲线） -->
+    <div class="silk" aria-hidden="true">
+      <div class="silk-paper"></div>
+      <div class="dowel dowel-l"></div>
+      <div class="dowel dowel-r"></div>
+    </div>
     <div class="intro-inner">
-      <div class="bar bar-l" aria-hidden="true"></div>
-      <div class="bar bar-r" aria-hidden="true"></div>
       <div class="intro-title">清明上河图</div>
       <div class="intro-sub">众 生 图 鉴</div>
       <div class="intro-stamp" aria-hidden="true">展</div>
@@ -47,40 +52,70 @@ onBeforeUnmount(() => window.clearTimeout(timer))
   }
 }
 
+/* 绢帛（长卷本体） */
+.silk {
+  position: absolute;
+  left: 7vw;
+  right: 7vw;
+  top: 50%;
+  height: min(58vh, 430px);
+  transform: translateY(-50%);
+}
+.silk-paper {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0);
+  animation: silk-open 1.15s cubic-bezier(0.11, 0, 0.5, 0) 0.1s forwards;
+  background:
+    repeating-linear-gradient(90deg, rgba(201, 169, 106, 0.05) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, rgba(244, 237, 224, 0.04), rgba(244, 237, 224, 0.09) 50%, rgba(244, 237, 224, 0.04));
+  border-top: 1px solid rgba(201, 169, 106, 0.28);
+  border-bottom: 1px solid rgba(201, 169, 106, 0.28);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.35) inset;
+}
+@keyframes silk-open {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 轴杆：与绢缘同速外移（同一缓动曲线） */
+.dowel {
+  position: absolute;
+  top: -14px;
+  bottom: -14px;
+  width: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #2c2418, #6b5636 50%, #2c2418);
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.6);
+}
+.dowel-l {
+  left: calc(50% - 6px);
+  animation: dowel-l 1.15s cubic-bezier(0.11, 0, 0.5, 0) 0.1s forwards;
+}
+.dowel-r {
+  right: calc(50% - 6px);
+  animation: dowel-r 1.15s cubic-bezier(0.11, 0, 0.5, 0) 0.1s forwards;
+}
+@keyframes dowel-l {
+  to {
+    left: 0;
+  }
+}
+@keyframes dowel-r {
+  to {
+    right: 0;
+  }
+}
+
 .intro-inner {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
   padding: 48px 56px;
-}
-
-/* 卷轴杆：自中向两侧展开 */
-.bar {
-  position: absolute;
-  top: -22px;
-  bottom: -22px;
-  width: 10px;
-  background: linear-gradient(90deg, #3a2f22, #6b5636 50%, #3a2f22);
-  border-radius: 5px;
-  left: calc(50% - 5px);
-}
-.bar-l {
-  animation: bar-l 0.9s var(--ease-ink) forwards;
-}
-.bar-r {
-  animation: bar-r 0.9s var(--ease-ink) forwards;
-}
-@keyframes bar-l {
-  to {
-    left: 0;
-  }
-}
-@keyframes bar-r {
-  to {
-    left: calc(100% - 10px);
-  }
 }
 
 .intro-title {
@@ -143,6 +178,10 @@ onBeforeUnmount(() => window.clearTimeout(timer))
   }
   .intro-inner {
     padding: 40px 40px;
+  }
+  .silk {
+    left: 4vw;
+    right: 4vw;
   }
 }
 </style>

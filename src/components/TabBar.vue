@@ -25,6 +25,35 @@ const nav = useNavStore()
       </svg>
       <span>图谱</span>
     </button>
+    <button class="tab" :class="{ active: nav.mode === 'find' }" @click="nav.setMode('find')">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <!-- 寻人：放大镜里的人 -->
+        <circle cx="10.5" cy="10" r="5.5" />
+        <path d="M14.8 14.3 20 19.5" stroke-linecap="round" />
+        <circle cx="10.5" cy="8.6" r="1.9" />
+        <path d="M7.2 13.4c.5-1.7 1.9-2.6 3.3-2.6s2.8.9 3.3 2.6" />
+      </svg>
+      <span>寻人</span>
+    </button>
+    <button class="tab" :class="{ active: nav.mode === 'story' }" @click="nav.setMode('story')">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <!-- 案情：卷宗 + 印 -->
+        <path d="M6 3.5h12a1.5 1.5 0 0 1 1.5 1.5v10H4.5V5A1.5 1.5 0 0 1 6 3.5z" />
+        <path d="M4.5 15h15v3.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z" />
+        <path d="M8 7.5h8M8 10.5h5" />
+        <circle cx="16.5" cy="17.2" r="1.6" />
+      </svg>
+      <span>案情</span>
+    </button>
+    <button class="tab" :class="{ active: nav.mode === 'poem' }" @click="nav.setMode('poem')">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <!-- 诗韵：竖卷 + 一笔草 -->
+        <path d="M7 3.5h10M7 20.5h10" stroke-linecap="round" />
+        <path d="M8.5 3.5v17M15.5 3.5v17" />
+        <path d="M10.5 8c1.4 1.2 2.6 1.2 4 0M10.5 12.5h4M12.5 12.5v4.5" stroke-linecap="round" />
+      </svg>
+      <span>诗韵</span>
+    </button>
   </nav>
 </template>
 

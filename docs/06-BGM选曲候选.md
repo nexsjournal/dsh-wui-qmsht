@@ -16,7 +16,7 @@
 | # | 曲目 | 来源 | 授权 | 链接 |
 |---|------|------|------|------|
 | 1 | China · Chinese · Asian Music（古琴+弦乐，叙事感强） | Pixabay | Pixabay License（免费商用、无需署名、可改） | https://pixabay.com/music/adventure-china-chinese-asian-music-349489/ |
-| 2 | Chinese Traditional Tune（传统调性，清淡） | Pixabay | 同上 | https://pixabay.com/zh/music/china-chinese-traditional-tune-12312/ |
+| 2 ✅ **已选定** | Chinese Traditional Tune（传统调性，清淡） | Pixabay | 同上 | https://pixabay.com/zh/music/china-chinese-traditional-tune-12312/ |
 | 3 | China Traditional Cinematic Music（电影感铺底） | Pixabay | 同上 | https://pixabay.com/music/china-china-traditional-cinematic-music-347249/ |
 | 4 | 小鎮月光（月色小调，偏静） | 500Audio | 站免费曲（下载页逐条核对授权） | https://zh.500audio.com/track/small-town-moonlight_1067910 |
 | 5 | CC 配乐分类（古琴/箫类多） | aigei | CC 协议（下载页注明具体 CC 版本） | https://www.aigei.com/music/cc/world_4/ |

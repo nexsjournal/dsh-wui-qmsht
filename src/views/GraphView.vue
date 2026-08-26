@@ -4,6 +4,7 @@ import { CameraRig } from '@/core/camera'
 import { PanZoom } from '@/core/panzoom'
 import { GRAPH_H, GRAPH_W, layoutGraph, SCENE_CENTERS, type GNode } from '@/core/graph-layout'
 import { characters, factionById, relations, world, RELATION_TYPE_META } from '@/data'
+import { useQuestStore, edgeKey } from '@/stores/quest'
 import { useNavStore } from '@/stores/nav'
 import { prefersReducedMotion } from '@/core/perf'
 import WorldView from '@/views/WorldView.vue'
@@ -17,6 +18,7 @@ const svgEl = ref<SVGSVGElement>()
 
 const layout = ref(layoutGraph())
 const { nodes, links, relax } = layout.value
+const quest = useQuestStore()
 const sceneXY = (id: string) => SCENE_CENTERS[id as keyof typeof SCENE_CENTERS] ?? { x: 0, y: 0 }
 
 let rig!: CameraRig
@@ -217,7 +219,10 @@ onBeforeUnmount(() => {
             v-for="l in links"
             :key="l.rel.from + l.rel.to"
             class="gv-edge"
-            :class="{ dim: isDim((l.rel.from as string)) || isDim(l.rel.to as string) }"
+            :class="{
+              dim: isDim((l.rel.from as string)) || isDim(l.rel.to as string),
+              unlocked: quest.unlocked.has(edgeKey(l.rel.from as string, l.rel.to as string)),
+            }"
             :stroke="RELATION_TYPE_META[l.rel.type].color"
             :stroke-dasharray="l.rel.type === 'companion' ? '7 5' : l.rel.type === 'crowd' ? '2 5' : 'none'"
             :d="linkPath(l)"
@@ -422,6 +427,17 @@ onBeforeUnmount(() => {
 }
 .gv-edge.dim {
   opacity: 0.06;
+}
+/* 「一船之故」已解锁的关系边：金色点亮 */
+.gv-edge.unlocked {
+  stroke: var(--gold);
+  stroke-width: 2.6;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 3px rgba(201, 169, 106, 0.55));
+}
+.gv-edge.unlocked:hover {
+  opacity: 1;
+  stroke-width: 3.2;
 }
 
 .gv-node {

@@ -44,6 +44,9 @@ export class CameraRig {
   }
 
   resize(vw: number, vh: number) {
+    // 视图被 v-show 隐藏（诗韵/图谱页）时 RO 会报 0 尺寸，忽略以免污染 scaleBase
+    // （污染后回展卷/寻人时全览飞行目标 scale≈0，画面缩成一条线）
+    if (vw <= 0 || vh <= 0) return
     this.vw = vw
     this.vh = vh
     this.scaleBase = Math.max(vh, 1) / this.H

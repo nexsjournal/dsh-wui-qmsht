@@ -1,19 +1,37 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { charById, factionById, relationsOf } from '@/data'
+import { charById, factionById, relationsOf, world } from '@/data'
 import { useNavStore } from '@/stores/nav'
 import { SCROLL_H, SCROLL_W } from '@/core/camera'
 import { cropRegion } from '@/core/crop'
+import ChatOverlay from '@/components/ChatOverlay.vue'
 import { prefersReducedMotion } from '@/core/perf'
 
 const nav = useNavStore()
 const reduced = prefersReducedMotion()
+
+const chatOpen = ref(false)
 
 const roller = defineModel<{ focusCharacter?: (id: string) => void } | null>({ default: null })
 
 const c = computed(() => (nav.detail ? (charById.get(nav.detail) ?? null) : null))
 const rels = computed(() => (c.value ? relationsOf(c.value.id) : []))
 const faction = computed(() => (c.value ? factionById.get(c.value.faction) : null))
+
+/** 诗韵回响：引用当前人物的诗词（反向链接） */
+const echoes = computed(() =>
+  c.value
+    ? world.poems
+        .filter((p) => p.links.some((l) => l.charId === c.value!.id))
+        .map((p) => ({ poem: p, note: p.links.find((l) => l.charId === c.value!.id)!.note }))
+    : [],
+)
+
+/** 诗韵回响原地展开：点开看全文，不关弹窗 */
+const expandedPoemId = ref<string | null>(null)
+function togglePoem(id: string) {
+  expandedPoemId.value = expandedPoemId.value === id ? null : id
+}
 
 const dir = ref<'push' | 'pop'>('push')
 const expanded = ref(false)
@@ -32,7 +50,9 @@ watch(
 watch(
   c,
   (ch) => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     expanded.value = false
+    expandedPoemId.value = null
     portraitUrl.value = ch?.portrait ?? ''
     if (!ch) return
     const cx = ch.pos.x * SCROLL_W
@@ -71,6 +91,156 @@ function viewInGraph() {
   closeAll()
 }
 
+// ============ 小传朗读（Web Speech） ============
+function speak() {
+  const ch = c.value
+  if (!ch || !('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(`${ch.name}，${ch.title}。${ch.shortBio}`)
+  u.lang = 'zh-CN'
+  u.rate = 0.95
+  window.speechSynthesis.speak(u)
+}
+
+// ============ 分享卡（canvas 海报 → 下载） ============
+const DISP = "'LXGW WenKai TC', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Serif SC', serif"
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  y: number,
+  maxW: number,
+  lh: number,
+  maxLines: number,
+) {
+  let line = ''
+  let lines = 0
+  for (const ch of text) {
+    const test = line + ch
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, cx, y)
+      line = ch
+      lines++
+      if (lines >= maxLines) return
+      y += lh
+    } else {
+      line = test
+    }
+  }
+  if (line) ctx.fillText(line, cx, y)
+}
+
+async function shareCard() {
+  const ch = c.value
+  const f = faction.value
+  if (!ch || !f) return
+  const W = 1080
+  const H = 1350
+  const cv = document.createElement('canvas')
+  cv.width = W
+  cv.height = H
+  const ctx = cv.getContext('2d')
+  if (!ctx) return
+  // 绢底 + 丝纹
+  ctx.fillStyle = '#f4ede0'
+  ctx.fillRect(0, 0, W, H)
+  ctx.strokeStyle = 'rgba(201, 169, 106, 0.08)'
+  ctx.lineWidth = 1
+  for (let x = 44; x < W - 44; x += 9) {
+    ctx.beginPath()
+    ctx.moveTo(x, 44)
+    ctx.lineTo(x, H - 44)
+    ctx.stroke()
+  }
+  // 双线框
+  ctx.strokeStyle = 'rgba(176, 58, 46, 0.8)'
+  ctx.lineWidth = 5
+  ctx.strokeRect(34, 34, W - 68, H - 68)
+  ctx.strokeStyle = 'rgba(201, 169, 106, 0.65)'
+  ctx.lineWidth = 1.5
+  ctx.strokeRect(52, 52, W - 104, H - 104)
+  ctx.textAlign = 'center'
+  // 标题
+  ctx.fillStyle = '#6b5636'
+  ctx.font = `42px ${DISP}`
+  ctx.fillText('清明上河图 · 众生图鉴', W / 2, 140)
+  // 立绘
+  let y = 190
+  if (portraitUrl.value) {
+    try {
+      const img = await loadImage(portraitUrl.value)
+      const box = 620
+      const x = (W - box) / 2
+      const sc = Math.max(box / img.width, box / img.height)
+      ctx.save()
+      roundRectPath(ctx, x, y, box, box, 10)
+      ctx.clip()
+      ctx.drawImage(img, x + (box - img.width * sc) / 2, y + (box - img.height * sc) / 2, img.width * sc, img.height * sc)
+      ctx.restore()
+      ctx.strokeStyle = 'rgba(201, 169, 106, 0.9)'
+      ctx.lineWidth = 3
+      roundRectPath(ctx, x, y, box, box, 10)
+      ctx.stroke()
+      y += box + 90
+    } catch {
+      y += 60
+    }
+  } else {
+    y += 80
+  }
+  // 名号
+  ctx.fillStyle = '#2a2620'
+  ctx.font = `108px ${DISP}`
+  ctx.fillText(ch.name, W / 2, y)
+  y += 80
+  // 职衔 · 阵营
+  ctx.fillStyle = '#8c5b3f'
+  ctx.font = `44px ${DISP}`
+  ctx.fillText(`${ch.title} · ${f.name}`, W / 2, y)
+  y += 100
+  // 小传（折行）
+  ctx.fillStyle = '#4a443a'
+  ctx.font = `37px ${DISP}`
+  wrapText(ctx, ch.shortBio, W / 2, y, W - 280, 56, 3)
+  // 印章
+  ctx.fillStyle = 'rgba(176, 58, 46, 0.9)'
+  ctx.fillRect(W - 160, H - 230, 64, 64)
+  ctx.fillStyle = '#f4ede0'
+  ctx.font = `40px ${DISP}`
+  ctx.fillText('图', W - 160 + 32, H - 230 + 44)
+  // 落款
+  ctx.fillStyle = 'rgba(107, 86, 54, 0.85)'
+  ctx.font = `33px ${DISP}`
+  ctx.fillText('一船之故 · 汴京一日', W / 2, H - 122)
+  ctx.fillStyle = 'rgba(107, 86, 54, 0.55)'
+  ctx.font = `28px ${DISP}`
+  ctx.fillText('展卷 · 点将 · 观天下', W / 2, H - 78)
+  const a = document.createElement('a')
+  a.download = `${ch.name} · 众生图鉴.png`
+  a.href = cv.toDataURL('image/png')
+  a.click()
+}
+
 // 浏览器返回键 ↔ 关系栈
 let fromPopstate = false
 function onPopState() {
@@ -99,6 +269,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('popstate', onPopState)
   window.removeEventListener('keydown', onKey)
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel()
 })
 </script>
 
@@ -169,12 +340,52 @@ onBeforeUnmount(() => {
         </ul>
       </section>
 
+      <!-- 诗韵回响 -->
+      <section v-if="echoes.length" class="d-sec">
+        <h3 class="d-h"><i>四</i>诗韵回响<em>（点按展开）</em></h3>
+        <ul class="d-echoes">
+          <li
+            v-for="e in echoes"
+            :key="e.poem.id"
+            class="d-echo"
+            :class="{ open: expandedPoemId === e.poem.id }"
+            @click="togglePoem(e.poem.id)"
+          >
+            <span class="e-poem"
+              >《{{ e.poem.title }}》{{ e.poem.dynasty }} · {{ e.poem.author }}
+              <i class="e-caret" aria-hidden="true">{{ expandedPoemId === e.poem.id ? '▲' : '▼' }}</i></span
+            >
+            <span class="e-note">{{ e.note }}</span>
+            <div v-if="expandedPoemId === e.poem.id" class="e-body">
+              <p v-for="(l, i) in e.poem.lines" :key="i" class="e-line">{{ l }}</p>
+              <p class="e-eye">「{{ e.poem.eye }}」</p>
+              <div v-if="e.poem.links.length > 1" class="e-others">
+                <span class="e-others-t">诗里还有</span>
+                <button
+                  v-for="lk in e.poem.links"
+                  :key="lk.charId"
+                  v-show="lk.charId !== c.id"
+                  class="e-other"
+                  @click.stop="go(lk.charId)"
+                >
+                  {{ charById.get(lk.charId)?.name }}
+                </button>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <!-- 操作 -->
       <footer class="d-foot">
         <button class="d-act" @click="viewInRoll">在画卷中查看</button>
         <button class="d-act" @click="viewInGraph">在图谱中查看</button>
+        <button class="d-act" @click="shareCard">生成分享卡</button>
+        <button class="d-act" @click="speak">听小传</button>
+        <button class="d-act" @click="chatOpen = true">与他谈</button>
       </footer>
     </div>
+    <ChatOverlay :char="c" :open="chatOpen" @close="chatOpen = false" />
   </div>
 </template>
 
@@ -235,7 +446,7 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   display: flex;
   gap: 18px;
-  align-items: flex-start;
+  align-items: center;
   position: relative;
 }
 .d-portrait {
@@ -488,11 +699,106 @@ onBeforeUnmount(() => {
 }
 
 /* 底部操作 */
+.d-echoes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.d-echo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-line);
+  background: rgba(201, 169, 106, 0.05);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.d-echo:hover {
+  border-color: var(--gold);
+}
+.e-poem {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+.e-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.d-echo.open {
+  border-color: var(--gold);
+}
+.e-caret {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-2);
+}
+.e-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--panel-line);
+  animation: echo-in 0.25s var(--ease-ink);
+}
+@keyframes echo-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.e-line {
+  margin: 2px 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 2px;
+  line-height: 1.9;
+  color: var(--text);
+}
+.e-eye {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--gold);
+  opacity: 0.9;
+}
+.e-others {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.e-others-t {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-2);
+}
+.e-other {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  background: rgba(201, 169, 106, 0.06);
+  border: 1px solid var(--panel-line);
+  padding: 3px 10px;
+  transition: border-color 0.2s;
+}
+.e-other:hover {
+  border-color: var(--gold);
+}
+
 .d-foot {
   max-width: 760px;
   margin: 30px auto 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+.d-foot .d-act {
+  flex: 1 1 40%;
 }
 .d-act {
   flex: 1;
@@ -527,7 +833,9 @@ onBeforeUnmount(() => {
     font-size: 44px;
   }
   .d-bio,
-  .d-sec,
+  .d-sec {
+    max-width: 960px;
+  }
   .d-foot {
     max-width: 960px;
   }

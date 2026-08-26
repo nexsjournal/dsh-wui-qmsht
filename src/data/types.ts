@@ -60,3 +60,22 @@ export const RELATION_TYPE_META: Record<RelationType, { name: string; color: str
   crowd: { name: '围观', color: '#6B6257' },
   conflict: { name: '对抗', color: '#7A2E24' },
 }
+
+/** 清明诗韵：诗词与画中人的呼应 */
+export interface PoemLink {
+  charId: string
+  /** 该人物与诗的关联注脚 */
+  note: string
+}
+export interface Poem {
+  id: string
+  title: string
+  author: string
+  dynasty: string
+  /** 分类：清明诗 / 春词 / 河上 */
+  tag: string
+  lines: string[]
+  /** 诗眼：一句点评，点明与画境的呼应 */
+  eye: string
+  links: PoemLink[]
+}
